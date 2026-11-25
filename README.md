@@ -69,6 +69,10 @@ cmake --build build
 windeployqt build\ftlz-edytor.exe
 ```
 
+### License
+
+FTLZ Editor is free software under the GNU General Public License, version 3 (GPL-3.0). See `LICENSE`. The text is also shown in the application under **About → License**.
+
 ---
 
 ## Deutsch
@@ -135,3 +139,7 @@ cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=C:/Qt/6.x/msvc2022_64
 cmake --build build
 windeployqt build\ftlz-edytor.exe
 ```
+
+### Lizenz
+
+FTLZ-Editor ist freie Software unter der GNU General Public License, Version 3 (GPL-3.0). Siehe `LICENSE`. Der Text wird auch in der Anwendung unter **Über → Lizenz** angezeigt.

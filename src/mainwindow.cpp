@@ -9,6 +9,9 @@
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QDir>
+#include <QFile>
+#include <QFontDatabase>
+#include <QPlainTextEdit>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
@@ -213,7 +216,35 @@ void MainWindow::showOptions()
 
 void MainWindow::showAbout()
 {
-    QMessageBox::about(this, tx("about.title"), tx("about.text"));
+    QMessageBox box(QMessageBox::Information, tx("about.title"), tx("about.text"), QMessageBox::Ok, this);
+    QPushButton *license = box.addButton(tx("about.license"), QMessageBox::ActionRole);
+    box.exec();
+    if (box.clickedButton() == license)
+        showLicense();
+}
+
+void MainWindow::showLicense()
+{
+    QFile file(QStringLiteral(":/LICENSE"));
+    QString text;
+    if (file.open(QIODevice::ReadOnly))
+        text = QString::fromUtf8(file.readAll());
+    else
+        text = tx("msg.licenseMissing");
+
+    QDialog dialog(this);
+    dialog.setWindowTitle(tx("about.licenseTitle"));
+    dialog.resize(720, 560);
+    auto *view = new QPlainTextEdit(text, &dialog);
+    view->setReadOnly(true);
+    view->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok, &dialog);
+    buttons->button(QDialogButtonBox::Ok)->setText(tx("btn.ok"));
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    auto *layout = new QVBoxLayout(&dialog);
+    layout->addWidget(view);
+    layout->addWidget(buttons);
+    dialog.exec();
 }
 
 void MainWindow::buildCentral()
@@ -239,6 +270,30 @@ void MainWindow::buildCentral()
     autoIndent->setToolTip(tx("btn.autoIndentDoc"));
     connect(autoIndent, &QPushButton::clicked, this, &MainWindow::autoIndentDocument);
     top->addWidget(autoIndent);
+
+    m_minDoc = new QPushButton(tx("btn.minimizeDoc"), central);
+    m_minDoc->setToolTip(tx("btn.minimizeDoc"));
+    m_minDoc->setCheckable(true);
+    connect(m_minDoc, &QPushButton::toggled, this, [this](bool on) {
+        if (on) {
+            QSignalBlocker other(m_maxDoc);
+            m_maxDoc->setChecked(false);
+        }
+        setAllViews(on ? ViewMode::Minimized : ViewMode::Normal);
+    });
+    top->addWidget(m_minDoc);
+
+    m_maxDoc = new QPushButton(tx("btn.maximizeDoc"), central);
+    m_maxDoc->setToolTip(tx("btn.maximizeDoc"));
+    m_maxDoc->setCheckable(true);
+    connect(m_maxDoc, &QPushButton::toggled, this, [this](bool on) {
+        if (on) {
+            QSignalBlocker other(m_minDoc);
+            m_minDoc->setChecked(false);
+        }
+        setAllViews(on ? ViewMode::Maximized : ViewMode::Normal);
+    });
+    top->addWidget(m_maxDoc);
     top->addStretch(1);
     root->addLayout(top);
 
@@ -277,6 +332,34 @@ void MainWindow::refreshAll()
     updateTitle();
 }
 
+void MainWindow::setAllViews(ViewMode mode)
+{
+    for (TextBlock &b : m_project.blocks)
+        for (FtlFile &f : b.files)
+            f.view = mode;
+    markDirty();
+    rebuildBlocks();
+}
+
+void MainWindow::syncDocumentViewButtons()
+{
+    if (!m_minDoc || !m_maxDoc)
+        return;
+    bool any = false;
+    bool allMin = true;
+    bool allMax = true;
+    for (const TextBlock &b : m_project.blocks)
+        for (const FtlFile &f : b.files) {
+            any = true;
+            allMin = allMin && f.view == ViewMode::Minimized;
+            allMax = allMax && f.view == ViewMode::Maximized;
+        }
+    QSignalBlocker minBlock(m_minDoc);
+    QSignalBlocker maxBlock(m_maxDoc);
+    m_minDoc->setChecked(any && allMin);
+    m_maxDoc->setChecked(any && allMax);
+}
+
 void MainWindow::rebuildBlocks()
 {
     while (QLayoutItem *item = m_blocksLayout->takeAt(0)) {
@@ -300,6 +383,7 @@ void MainWindow::rebuildBlocks()
         m_blocksLayout->addWidget(widget);
     }
     m_blocksLayout->addStretch(1);
+    syncDocumentViewButtons();
 }
 
 void MainWindow::setLanguage(int languageIndex)

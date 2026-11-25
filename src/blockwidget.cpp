@@ -38,20 +38,18 @@ BlockWidget::BlockWidget(Project *project, const QString &blockId, QWidget *pare
     });
     header->addWidget(m_labelEdit, 1);
 
-    auto addButton = [this, header](const QString &text, Command cmd, const QString &tip = {}) {
+    auto addButton = [this](QBoxLayout *row, const QString &text, Command cmd, const QString &tip = {}) {
         auto *btn = new QPushButton(text, this);
         btn->setToolTip(tip.isEmpty() ? text : tip);
         connect(btn, &QPushButton::clicked, this, [this, cmd] { emit commandRequested(QString(), cmd); });
-        header->addWidget(btn);
+        row->addWidget(btn);
     };
-    addButton(tx("btn.save"), Command::SaveBlock);
-    addButton(tx("btn.saveAs"), Command::SaveBlockAs);
-    addButton(tx("btn.addFromFile"), Command::AddFromFile);
-    addButton(tx("btn.addEmpty"), Command::AddEmpty);
-    addButton(QStringLiteral("↑"), Command::MoveUp, tx("btn.up"));
-    addButton(QStringLiteral("↓"), Command::MoveDown, tx("btn.down"));
-    addButton(tx("btn.autoIndent"), Command::AutoIndentBlock);
-    addButton(tx("btn.delete"), Command::DeleteBlock);
+    addButton(header, tx("btn.save"), Command::SaveBlock);
+    addButton(header, tx("btn.saveAs"), Command::SaveBlockAs);
+    addButton(header, QStringLiteral("↑"), Command::MoveUp, tx("btn.up"));
+    addButton(header, QStringLiteral("↓"), Command::MoveDown, tx("btn.down"));
+    addButton(header, tx("btn.autoIndent"), Command::AutoIndentBlock);
+    addButton(header, tx("btn.delete"), Command::DeleteBlock);
     root->addLayout(header);
 
     // --- filter row ---
@@ -74,6 +72,8 @@ BlockWidget::BlockWidget(Project *project, const QString &blockId, QWidget *pare
         }
         setAllViews(on ? ViewMode::Minimized : ViewMode::Normal);
     });
+    addButton(filterRow, tx("btn.addFromFile"), Command::AddFromFile);
+    addButton(filterRow, tx("btn.addEmpty"), Command::AddEmpty);
     filterRow->addWidget(m_minAll);
 
     m_maxAll = new QPushButton(tx("btn.maximize"), this);

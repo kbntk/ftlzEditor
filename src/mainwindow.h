@@ -28,6 +28,7 @@ private:
     void buildMenus();
     void buildCentral();
     void showAbout();
+    void showLicense();
     void showOptions();
     void populateRecentMenu();
     void openRecentProject(const QString &path);
@@ -62,6 +63,8 @@ private:
     void autoIndentBlock(const QString &blockId);
     void autoIndentFile(const QString &blockId, const QString &fileId);
     void generateFiles();
+    void setAllViews(ViewMode mode);            // every file of the document
+    void syncDocumentViewButtons();
 
     // Undo / redo of block-level changes (text typed in an editor uses the editor's own undo).
     struct Snapshot {
@@ -84,5 +87,7 @@ private:
     QWidget *m_blocksHost = nullptr;
     QVBoxLayout *m_blocksLayout = nullptr;
     QLineEdit *m_prefixEdit = nullptr;
+    QPushButton *m_minDoc = nullptr;
+    QPushButton *m_maxDoc = nullptr;
     QMenu *m_recentMenu = nullptr;
 };

@@ -34,6 +34,7 @@ add_executable(ftlz-edytor
     src/ftlhighlighter.h
 )
 target_link_libraries(ftlz-edytor PRIVATE ftlcore Qt6::Core Qt6::Gui Qt6::Widgets)
+qt_add_resources(ftlz-edytor license_resources FILES LICENSE)
 if(WIN32)
     set_target_properties(ftlz-edytor PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
