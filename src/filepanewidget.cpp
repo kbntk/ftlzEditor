@@ -66,30 +66,16 @@ FilePaneWidget::FilePaneWidget(Project *project, const QString &blockId, const Q
     m_fileNameLabel->setToolTip(f->path);
     header->addWidget(m_fileNameLabel);
 
-    m_minButton = new QToolButton(this);
-    m_minButton->setText(tx("btn.minimize"));
-    m_minButton->setCheckable(true);
-    connect(m_minButton, &QToolButton::toggled, this, [this](bool on) {
-        applyViewMode(on ? ViewMode::Minimized : ViewMode::Normal);
-    });
-    header->addWidget(m_minButton);
-
-    m_maxButton = new QToolButton(this);
-    m_maxButton->setText(tx("btn.maximize"));
-    m_maxButton->setCheckable(true);
-    connect(m_maxButton, &QToolButton::toggled, this, [this](bool on) {
-        applyViewMode(on ? ViewMode::Maximized : ViewMode::Normal);
-    });
-    header->addWidget(m_maxButton);
-
     auto *indentButton = new QToolButton(this);
     indentButton->setText(tx("btn.autoIndent"));
+    indentButton->setToolTip(tx("btn.autoIndent"));
     connect(indentButton, &QToolButton::clicked, this,
             [this] { emit commandRequested(m_fileId, Command::AutoIndentFile); });
     header->addWidget(indentButton);
 
     auto *deleteButton = new QToolButton(this);
     deleteButton->setText(tx("btn.delete"));
+    deleteButton->setToolTip(tx("btn.delete"));
     connect(deleteButton, &QToolButton::clicked, this,
             [this] { emit commandRequested(m_fileId, Command::DeleteFile); });
     header->addWidget(deleteButton);
@@ -114,7 +100,6 @@ FilePaneWidget::FilePaneWidget(Project *project, const QString &blockId, const Q
     layout->addWidget(m_editor);
 
     applyEditorFont();
-    updateViewButtons(f->view); // initial state: must not mark the project dirty
     fitEditor();
 }
 
@@ -136,26 +121,6 @@ void FilePaneWidget::applyEditorFont()
     m_editor->setFont(font);
     m_editor->setTabStopDistance(QFontMetricsF(font).horizontalAdvance(QLatin1Char(' ')) * 4);
     fitEditor();
-}
-
-void FilePaneWidget::updateViewButtons(ViewMode mode)
-{
-    QSignalBlocker minBlock(m_minButton);
-    QSignalBlocker maxBlock(m_maxButton);
-    m_minButton->setChecked(mode == ViewMode::Minimized);
-    m_maxButton->setChecked(mode == ViewMode::Maximized);
-}
-
-void FilePaneWidget::applyViewMode(ViewMode mode)
-{
-    FtlFile *f = file();
-    if (!f)
-        return;
-
-    f->view = mode;
-    updateViewButtons(mode);
-    fitEditor();
-    emit commandRequested(m_fileId, Command::Changed);
 }
 
 void FilePaneWidget::fitEditor()

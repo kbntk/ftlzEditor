@@ -225,6 +225,7 @@ void MainWindow::buildCentral()
     auto *top = new QHBoxLayout;
     auto addTop = [&](const QString &text, auto slot) {
         auto *btn = new QPushButton(text, central);
+        btn->setToolTip(text);
         connect(btn, &QPushButton::clicked, this, slot);
         top->addWidget(btn);
     };
@@ -235,6 +236,7 @@ void MainWindow::buildCentral()
     addTop(tx("btn.saveProjectAs"), &MainWindow::saveProjectAs);
     top->addSpacing(16);
     auto *autoIndent = new QPushButton(tx("btn.autoIndentDoc"), central);
+    autoIndent->setToolTip(tx("btn.autoIndentDoc"));
     connect(autoIndent, &QPushButton::clicked, this, &MainWindow::autoIndentDocument);
     top->addWidget(autoIndent);
     top->addStretch(1);
@@ -259,6 +261,7 @@ void MainWindow::buildCentral()
     });
     bottom->addWidget(m_prefixEdit, 1);
     auto *generate = new QPushButton(tx("btn.generate"), central);
+    generate->setToolTip(tx("btn.generate"));
     connect(generate, &QPushButton::clicked, this, &MainWindow::generateFiles);
     bottom->addWidget(generate);
     root->addLayout(bottom);

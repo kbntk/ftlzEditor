@@ -31,8 +31,6 @@ signals:
 private:
     FtlFile *file() const;
     void applyEditorFont();
-    void applyViewMode(ViewMode mode);   // user action: marks the project dirty
-    void updateViewButtons(ViewMode mode);
     void fitEditor();
     void onLabelEdited(const QString &text);
     void commitLabel();
@@ -44,8 +42,6 @@ private:
 
     QLineEdit *m_labelEdit = nullptr;
     QLabel *m_fileNameLabel = nullptr;
-    QToolButton *m_minButton = nullptr;
-    QToolButton *m_maxButton = nullptr;
     QPlainTextEdit *m_editor = nullptr;
     QStringListModel *m_suggestions = nullptr;
     QCompleter *m_completer = nullptr;

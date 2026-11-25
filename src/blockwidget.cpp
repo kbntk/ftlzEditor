@@ -9,6 +9,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -39,8 +41,7 @@ BlockWidget::BlockWidget(Project *project, const QString &blockId, QWidget *pare
 
     auto addButton = [this, header](const QString &text, Command cmd, const QString &tip = {}) {
         auto *btn = new QPushButton(text, this);
-        if (!tip.isEmpty())
-            btn->setToolTip(tip);
+        btn->setToolTip(tip.isEmpty() ? text : tip);
         connect(btn, &QPushButton::clicked, this, [this, cmd] { emit commandRequested(QString(), cmd); });
         header->addWidget(btn);
     };
@@ -59,9 +60,36 @@ BlockWidget::BlockWidget(Project *project, const QString &blockId, QWidget *pare
     filterRow->addWidget(new QLabel(tx("lbl.filter"), this));
     m_filterEdit = new QLineEdit(this);
     m_filterEdit->setClearButtonEnabled(true);
+    for (QToolButton *clear : m_filterEdit->findChildren<QToolButton *>())
+        clear->setToolTip(tx("btn.clear"));
     connect(m_filterEdit, &QLineEdit::textChanged, this, &BlockWidget::applyFilter);
     filterRow->addWidget(m_filterEdit, 1);
+
+    m_minAll = new QPushButton(tx("btn.minimize"), this);
+    m_minAll->setToolTip(tx("btn.minimizeAll"));
+    m_minAll->setCheckable(true);
+    connect(m_minAll, &QPushButton::toggled, this, [this](bool on) {
+        if (on) {
+            QSignalBlocker other(m_maxAll);
+            m_maxAll->setChecked(false);
+        }
+        setAllViews(on ? ViewMode::Minimized : ViewMode::Normal);
+    });
+    filterRow->addWidget(m_minAll);
+
+    m_maxAll = new QPushButton(tx("btn.maximize"), this);
+    m_maxAll->setToolTip(tx("btn.maximizeAll"));
+    m_maxAll->setCheckable(true);
+    connect(m_maxAll, &QPushButton::toggled, this, [this](bool on) {
+        if (on) {
+            QSignalBlocker other(m_minAll);
+            m_minAll->setChecked(false);
+        }
+        setAllViews(on ? ViewMode::Maximized : ViewMode::Normal);
+    });
+    filterRow->addWidget(m_maxAll);
     filterRow->addStretch(2);
+    syncViewButtons();
     root->addLayout(filterRow);
 
     // --- variant panes ---
@@ -122,6 +150,35 @@ void BlockWidget::rebuildPanes()
         m_panesLayout->addWidget(pane);
     }
     applyFilter();
+}
+
+void BlockWidget::setAllViews(ViewMode mode)
+{
+    TextBlock *b = block();
+    if (!b)
+        return;
+    for (FtlFile &f : b->files)
+        f.view = mode;
+    syncViewButtons();
+    emit commandRequested(QString(), Command::Changed);
+    rebuildPanes(); // editors take their new height from the model
+}
+
+void BlockWidget::syncViewButtons()
+{
+    const TextBlock *b = block();
+    if (!b)
+        return;
+    bool allMin = !b->files.isEmpty();
+    bool allMax = !b->files.isEmpty();
+    for (const FtlFile &f : b->files) {
+        allMin = allMin && f.view == ViewMode::Minimized;
+        allMax = allMax && f.view == ViewMode::Maximized;
+    }
+    QSignalBlocker minBlock(m_minAll);
+    QSignalBlocker maxBlock(m_maxAll);
+    m_minAll->setChecked(allMin);
+    m_maxAll->setChecked(allMax);
 }
 
 void BlockWidget::applyFilter()
