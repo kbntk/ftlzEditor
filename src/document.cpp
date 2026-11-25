@@ -227,6 +227,35 @@ bool writeTextFile(const QString &path, const QString &content, QString &error)
 // Generation
 // ---------------------------------------------------------------------------
 
+QVector<MissingVariant> findMissingVariants(const Project &p)
+{
+    // All variant labels used by any variant block.
+    QStringList all;
+    for (const TextBlock &b : p.blocks) {
+        if (b.isShared())
+            continue;
+        for (const FtlFile &f : b.files) {
+            const QString l = f.label.trimmed();
+            if (!l.isEmpty() && !all.contains(l))
+                all << l;
+        }
+    }
+    std::sort(all.begin(), all.end(), labelLess);
+
+    QVector<MissingVariant> missing;
+    for (const TextBlock &b : p.blocks) {
+        if (b.isShared())
+            continue;
+        QStringList own;
+        for (const FtlFile &f : b.files)
+            own << f.label.trimmed();
+        for (const QString &l : all)
+            if (!own.contains(l))
+                missing.append({b.label, l});
+    }
+    return missing;
+}
+
 QString sanitizeFileName(const QString &name)
 {
     QString s = name.trimmed();

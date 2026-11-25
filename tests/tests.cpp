@@ -94,6 +94,28 @@ private slots:
                                                     "Pon-Pt 8-16\n"));
     }
 
+    void reportsMissingVariantsPerBlock()
+    {
+        // The example from the request: A has 1,2 and B has 1,3.
+        Project p;
+        p.blocks.append(block(QStringLiteral("A"), {file(QStringLiteral("1"), QStringLiteral("a1")),
+                                                    file(QStringLiteral("2"), QStringLiteral("a2"))}));
+        p.blocks.append(block(QStringLiteral("B"), {file(QStringLiteral("1"), QStringLiteral("b1")),
+                                                    file(QStringLiteral("3"), QStringLiteral("b3"))}));
+        p.blocks.append(block(QStringLiteral("shared"), {file(QStringLiteral("x"), QStringLiteral("x"))}));
+        const QVector<MissingVariant> m = findMissingVariants(p);
+        QCOMPARE(m.size(), 2);
+        QCOMPARE(m[0].blockLabel, QStringLiteral("A"));
+        QCOMPARE(m[0].label, QStringLiteral("3"));
+        QCOMPARE(m[1].blockLabel, QStringLiteral("B"));
+        QCOMPARE(m[1].label, QStringLiteral("2"));
+
+        Project complete;
+        complete.blocks.append(block(QStringLiteral("A"), {file(QStringLiteral("1"), QString()), file(QStringLiteral("2"), QString())}));
+        complete.blocks.append(block(QStringLiteral("B"), {file(QStringLiteral("2"), QString()), file(QStringLiteral("1"), QString())}));
+        QVERIFY(findMissingVariants(complete).isEmpty());
+    }
+
     void spacesInLabelsBecomeUnderscores()
     {
         QCOMPARE(sanitizeFileName(QStringLiteral("UM Słupca")), QStringLiteral("UM_Słupca"));

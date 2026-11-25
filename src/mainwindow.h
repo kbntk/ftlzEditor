@@ -52,6 +52,7 @@ private:
 
     void handleCommand(const QString &blockId, const QString &fileId, Command cmd);
     void saveBlock(const QString &blockId, bool saveAs);
+    void saveFile(const QString &blockId, const QString &fileId, bool saveAs);
     void addVariantsFromFiles(const QString &blockId);
     void addEmptyVariant(const QString &blockId);
     void moveBlock(const QString &blockId, int delta);

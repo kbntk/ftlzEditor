@@ -603,10 +603,50 @@ void MainWindow::handleCommand(const QString &blockId, const QString &fileId, Co
     case Command::DeleteFile:
         deleteFile(blockId, fileId);
         return;
+    case Command::SaveFile:
+        saveFile(blockId, fileId, false);
+        return;
+    case Command::SaveFileAs:
+        saveFile(blockId, fileId, true);
+        return;
     case Command::AutoIndentFile:
         autoIndentFile(blockId, fileId);
         return;
     }
+}
+
+void MainWindow::saveFile(const QString &blockId, const QString &fileId, bool saveAs)
+{
+    const TextBlock *probeBlock = findBlock(m_project, blockId);
+    if (!probeBlock || !findFile(*findBlock(m_project, blockId), fileId))
+        return;
+    const FtlFile &probe = *findFile(*findBlock(m_project, blockId), fileId);
+
+    QString path = probe.path;
+    if (saveAs || path.isEmpty()) {
+        const QString suggested = path.isEmpty()
+                                      ? QDir(m_lastDir).filePath(sanitizeFileName(probe.label) + QStringLiteral(".ftl"))
+                                      : path;
+        path = QFileDialog::getSaveFileName(this, tx("dlg.saveAs"), suggested, tx("filter.ftl"));
+        if (path.isEmpty())
+            return;
+        m_lastDir = QFileInfo(path).absolutePath();
+    }
+
+    // Content is taken from the model, which is kept in sync with the editor.
+    QString error;
+    if (!writeTextFile(path, findFile(*findBlock(m_project, blockId), fileId)->content, error)) {
+        showError(tx("msg.writeFailed").arg(path, error));
+        return;
+    }
+
+    FtlFile *f = findFile(*findBlock(m_project, blockId), fileId);
+    if (f->path != path) {
+        f->path = path;
+        markDirty();
+        rebuildBlocks(); // the pane shows the file name
+    }
+    statusBar()->showMessage(tx("msg.saved"), 3000);
 }
 
 void MainWindow::saveBlock(const QString &blockId, bool saveAs)
@@ -846,6 +886,16 @@ void MainWindow::generateFiles()
     if (!result.errors.isEmpty()) {
         showError(result.errors.join(QLatin1Char('\n')));
         return;
+    }
+
+    const QVector<MissingVariant> missing = findMissingVariants(m_project);
+    if (!missing.isEmpty()) {
+        QStringList lines;
+        for (const MissingVariant &m : missing)
+            lines << tx("msg.missingVariant").arg(m.blockLabel.isEmpty() ? tx("lbl.noLabel") : m.blockLabel, m.label);
+        const QString question = lines.join(QLatin1Char('\n')) + QStringLiteral("\n\n") + tx("msg.continueAnyway");
+        if (!askYesNo(tx("btn.generate"), question))
+            return;
     }
 
     const QString dir = QFileDialog::getExistingDirectory(this, tx("dlg.chooseDir"), m_lastDir);

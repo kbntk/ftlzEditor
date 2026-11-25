@@ -76,6 +76,16 @@ struct GenerateResult {
     QStringList errors;
 };
 
+// A variant block that has no file for a label used by some other variant block.
+struct MissingVariant {
+    QString blockLabel;
+    QString label;
+};
+
+// Variant blocks (blocks with several files) that lack a label used in another
+// variant block. Blocks are listed in document order, labels alphabetically.
+QVector<MissingVariant> findMissingVariants(const Project &p);
+
 // Replaces whitespace with '_' and drops characters that are illegal in file names.
 QString sanitizeFileName(const QString &name);
 

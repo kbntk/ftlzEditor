@@ -66,6 +66,20 @@ FilePaneWidget::FilePaneWidget(Project *project, const QString &blockId, const Q
     m_fileNameLabel->setToolTip(f->path);
     header->addWidget(m_fileNameLabel);
 
+    auto *saveButton = new QToolButton(this);
+    saveButton->setText(tx("btn.save"));
+    saveButton->setToolTip(tx("btn.save"));
+    connect(saveButton, &QToolButton::clicked, this,
+            [this] { emit commandRequested(m_fileId, Command::SaveFile); });
+    header->addWidget(saveButton);
+
+    auto *saveAsButton = new QToolButton(this);
+    saveAsButton->setText(tx("btn.saveAs"));
+    saveAsButton->setToolTip(tx("btn.saveAs"));
+    connect(saveAsButton, &QToolButton::clicked, this,
+            [this] { emit commandRequested(m_fileId, Command::SaveFileAs); });
+    header->addWidget(saveAsButton);
+
     auto *indentButton = new QToolButton(this);
     indentButton->setText(tx("btn.autoIndent"));
     indentButton->setToolTip(tx("btn.autoIndent"));

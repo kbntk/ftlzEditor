@@ -13,4 +13,6 @@ enum class Command {
     AutoIndentBlock,  // re-indent all variants of the block
     DeleteFile,    // delete one variant (fileId required)
     AutoIndentFile, // re-indent one variant (fileId required)
+    SaveFile,       // save one variant to its file (fileId required)
+    SaveFileAs,     // save one variant to a chosen file (fileId required)
 };

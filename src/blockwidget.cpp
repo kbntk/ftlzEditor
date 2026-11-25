@@ -37,7 +37,6 @@ BlockWidget::BlockWidget(Project *project, const QString &blockId, QWidget *pare
         emit commandRequested(QString(), Command::Changed);
     });
     header->addWidget(m_labelEdit, 1);
-    header->addWidget(new QLabel(b->isShared() ? tx("tag.shared") : tx("tag.variants"), this));
 
     auto addButton = [this, header](const QString &text, Command cmd, const QString &tip = {}) {
         auto *btn = new QPushButton(text, this);

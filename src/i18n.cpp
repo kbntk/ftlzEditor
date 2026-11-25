@@ -87,8 +87,6 @@ const Entry kEntries[] = {
     {"lbl.block", "Block %1", "Block %1"},
     {"lbl.variant", "Variant %1", "Variante %1"},
     {"lbl.notSaved", "(not saved)", "(nicht gespeichert)"},
-    {"tag.shared", "shared", "gemeinsam"},
-    {"tag.variants", "variants", "Varianten"},
 
     // dialogs
     {"dlg.openFtl", "Open .ftl file(s)", ".ftl-Datei(en) öffnen"},
@@ -129,6 +127,9 @@ const Entry kEntries[] = {
      "Block \"%1\" hat eine Variante ohne Bezeichnung."},
     {"err.duplicateLabel", "Label \"%1\" is used twice in block \"%2\".",
      "Bezeichnung \"%1\" kommt im Block \"%2\" zweimal vor."},
+    {"msg.missingVariant", "In block \"%1\" the label \"%2\" is missing.",
+     "Im Block \"%1\" fehlt die Bezeichnung \"%2\"."},
+    {"msg.continueAnyway", "Continue generating anyway?", "Trotzdem weiter erzeugen?"},
     {"err.noVariants", "No variants found. Generating files needs at least one block with more than one file.",
      "Keine Varianten gefunden. Für die Erzeugung wird mindestens ein Block mit mehr als einer Datei benötigt."},
     {"err.nameClash", "Two variants would produce the same file name: %1",
