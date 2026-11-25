@@ -16,6 +16,10 @@ class BlockWidget : public QFrame {
 public:
     BlockWidget(Project *project, const QString &blockId, QWidget *parent = nullptr);
 
+    QString blockId() const { return m_blockId; }
+    // Recreates only the variant panes, e.g. after a variant was added or removed.
+    void refreshPanes() { rebuildPanes(); }
+
     // Slightly darkens the background; used for every second block.
     void setShaded(bool shaded);
 

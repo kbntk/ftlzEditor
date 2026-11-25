@@ -12,6 +12,7 @@ class QLabel;
 class QMenu;
 class QLineEdit;
 class QPushButton;
+class QScrollArea;
 class QVBoxLayout;
 
 class MainWindow : public QMainWindow {
@@ -65,6 +66,8 @@ private:
     void generateFiles();
     void setAllViews(ViewMode mode);            // every file of the document
     void syncDocumentViewButtons();
+    void restoreBlocksScroll(int position);
+    void refreshBlock(const QString &blockId);   // rebuilds one block, falls back to all
 
     // Undo / redo of block-level changes (text typed in an editor uses the editor's own undo).
     struct Snapshot {
@@ -87,6 +90,7 @@ private:
     QWidget *m_blocksHost = nullptr;
     QVBoxLayout *m_blocksLayout = nullptr;
     QLineEdit *m_prefixEdit = nullptr;
+    QScrollArea *m_blocksScroll = nullptr;
     QPushButton *m_minDoc = nullptr;
     QPushButton *m_maxDoc = nullptr;
     QMenu *m_recentMenu = nullptr;

@@ -30,6 +30,8 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar>
+#include <QTimer>
 #include <QSettings>
 #include <QStatusBar>
 #include <QVBoxLayout>
@@ -298,13 +300,13 @@ void MainWindow::buildCentral()
     root->addLayout(top);
 
     // --- blocks ---
-    auto *scroll = new QScrollArea(central);
-    scroll->setWidgetResizable(true);
-    m_blocksHost = new QWidget(scroll);
+    m_blocksScroll = new QScrollArea(central);
+    m_blocksScroll->setWidgetResizable(true);
+    m_blocksHost = new QWidget(m_blocksScroll);
     m_blocksLayout = new QVBoxLayout(m_blocksHost);
     m_blocksLayout->setAlignment(Qt::AlignTop);
-    scroll->setWidget(m_blocksHost);
-    root->addWidget(scroll, 1);
+    m_blocksScroll->setWidget(m_blocksHost);
+    root->addWidget(m_blocksScroll, 1);
 
     // --- bottom bar: collective name and generation ---
     auto *bottom = new QHBoxLayout;
@@ -330,6 +332,33 @@ void MainWindow::refreshAll()
     m_prefixEdit->setText(m_project.collectivePrefix);
     rebuildBlocks();
     updateTitle();
+}
+
+void MainWindow::refreshBlock(const QString &blockId)
+{
+    // Only that block is recreated: other blocks keep their widgets, focus and scroll
+    // position. Hidden blocks are the ones deleted by an earlier rebuild.
+    for (BlockWidget *bw : m_blocksHost->findChildren<BlockWidget *>(QString(), Qt::FindDirectChildrenOnly)) {
+        if (!bw->isHidden() && bw->blockId() == blockId) {
+            bw->refreshPanes();
+            syncDocumentViewButtons();
+            return;
+        }
+    }
+    rebuildBlocks();
+}
+
+void MainWindow::restoreBlocksScroll(int position)
+{
+    if (!m_blocksScroll)
+        return;
+    // Set it now and again once the event loop has laid out the new blocks
+    // (focus moves when the old widgets are deleted and may scroll the view).
+    m_blocksScroll->verticalScrollBar()->setValue(position);
+    QTimer::singleShot(0, this, [this, position] {
+        if (m_blocksScroll)
+            m_blocksScroll->verticalScrollBar()->setValue(position);
+    });
 }
 
 void MainWindow::setAllViews(ViewMode mode)
@@ -362,6 +391,9 @@ void MainWindow::syncDocumentViewButtons()
 
 void MainWindow::rebuildBlocks()
 {
+    // The rebuilt blocks would otherwise reset the scroll position of the window.
+    const int scrollPosition = m_blocksScroll ? m_blocksScroll->verticalScrollBar()->value() : 0;
+
     while (QLayoutItem *item = m_blocksLayout->takeAt(0)) {
         if (QWidget *w = item->widget()) {
             w->hide();
@@ -384,6 +416,7 @@ void MainWindow::rebuildBlocks()
     }
     m_blocksLayout->addStretch(1);
     syncDocumentViewButtons();
+    restoreBlocksScroll(scrollPosition);
 }
 
 void MainWindow::setLanguage(int languageIndex)
@@ -728,7 +761,7 @@ void MainWindow::saveFile(const QString &blockId, const QString &fileId, bool sa
     if (f->path != path) {
         f->path = path;
         markDirty();
-        rebuildBlocks(); // the pane shows the file name
+        refreshBlock(blockId); // the pane shows the file name
     }
     statusBar()->showMessage(tx("msg.saved"), 3000);
 }
@@ -823,7 +856,7 @@ void MainWindow::addVariantsFromFiles(const QString &blockId)
         b->files.append(makeFile(QFileInfo(path).completeBaseName(), path, content));
     }
     markDirty();
-    rebuildBlocks();
+    refreshBlock(blockId);
 }
 
 void MainWindow::addEmptyVariant(const QString &blockId)
@@ -834,7 +867,7 @@ void MainWindow::addEmptyVariant(const QString &blockId)
     TextBlock *b = findBlock(m_project, blockId);
     b->files.append(makeFile(tx("lbl.variant").arg(b->files.size() + 1), QString(), QString()));
     markDirty();
-    rebuildBlocks();
+    refreshBlock(blockId);
 }
 
 void MainWindow::moveBlock(const QString &blockId, int delta)
@@ -884,10 +917,14 @@ void MainWindow::deleteFile(const QString &blockId, const QString &fileId)
     recordUndo();
     TextBlock &b = m_project.blocks[blockPos];
     b.files.remove(fileIndex);
-    if (b.files.isEmpty())
+    if (b.files.isEmpty()) {
         m_project.blocks.remove(blockPos); // a block always has at least one file
-    markDirty();
-    rebuildBlocks();
+        markDirty();
+        rebuildBlocks();
+    } else {
+        markDirty();
+        refreshBlock(blockId);
+    }
 }
 
 namespace {
@@ -937,7 +974,7 @@ void MainWindow::autoIndentBlock(const QString &blockId)
         m_redoStack = redoBefore;
     } else {
         markDirty();
-        rebuildBlocks();
+        refreshBlock(blockId);
     }
     statusBar()->showMessage(tx("msg.indented"), 3000);
 }
@@ -955,7 +992,7 @@ void MainWindow::autoIndentFile(const QString &blockId, const QString &fileId)
         m_redoStack = redoBefore;
     } else {
         markDirty();
-        rebuildBlocks();
+        refreshBlock(blockId);
     }
     statusBar()->showMessage(tx("msg.indented"), 3000);
 }
