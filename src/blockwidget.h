@@ -21,6 +21,7 @@ public:
 signals:
     // fileId is empty for block-level commands.
     void commandRequested(const QString &fileId, Command cmd);
+    void moveSelectionRequested(const QString &fileId, int start, int end);
 
 private:
     TextBlock *block() const;

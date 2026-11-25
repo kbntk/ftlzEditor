@@ -12,6 +12,8 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
+#include <QTextCursor>
 #include <QPlainTextEdit>
 #include <QScrollBar>
 #include <QStringListModel>
@@ -21,6 +23,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 namespace {
 constexpr int kColumns = 120;     // editor width in characters
@@ -98,6 +101,8 @@ FilePaneWidget::FilePaneWidget(Project *project, const QString &blockId, const Q
     m_editor->setLineWrapMode(QPlainTextEdit::NoWrap);
     m_editor->setPlainText(f->content);
     new FtlHighlighter(m_editor->document());
+    m_editor->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_editor, &QWidget::customContextMenuRequested, this, &FilePaneWidget::showEditorMenu);
     connect(m_editor, &QPlainTextEdit::textChanged, this, [this] {
         if (FtlFile *fl = file()) {
             fl->content = m_editor->toPlainText();
@@ -175,6 +180,23 @@ void FilePaneWidget::fitEditor()
 
     m_editor->setFixedHeight(static_cast<int>(
         std::ceil(fm.lineSpacing() * lines + docMargin + frame + scrollBarHeight + 4)));
+}
+
+void FilePaneWidget::showEditorMenu(const QPoint &pos)
+{
+    std::unique_ptr<QMenu> menu(m_editor->createStandardContextMenu());
+
+    const QTextCursor cursor = m_editor->textCursor();
+    const TextBlock *b = findBlock(*m_project, m_blockId);
+    if (cursor.hasSelection() && b && b->files.size() == 1) {
+        menu->addSeparator();
+        QAction *move = menu->addAction(tx("ctx.moveToNewBlock"));
+        const int start = cursor.selectionStart();
+        const int end = cursor.selectionEnd();
+        connect(move, &QAction::triggered, this,
+                [this, start, end] { emit moveSelectionRequested(m_fileId, start, end); });
+    }
+    menu->exec(m_editor->mapToGlobal(pos));
 }
 
 void FilePaneWidget::onLabelEdited(const QString &text)

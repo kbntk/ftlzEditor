@@ -5,6 +5,7 @@
 #include "indent.h"
 
 #include <QAction>
+#include <QApplication>
 #include <QActionGroup>
 #include <QCloseEvent>
 #include <QDir>
@@ -22,6 +23,8 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QKeyEvent>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSettings>
@@ -34,6 +37,15 @@
 namespace {
 
 constexpr int kMaxRecentProjects = 25;
+
+constexpr int kMaxUndoSteps = 200;
+
+bool isRedoKey(const QKeyEvent *ke)
+{
+    return ke->matches(QKeySequence::Redo) ||
+           (ke->key() == Qt::Key_Y && ke->modifiers() == Qt::ControlModifier) ||
+           (ke->key() == Qt::Key_Z && ke->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier));
+}
 
 TextBlock makeBlock(const QString &label)
 {
@@ -98,6 +110,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), m_lastDir(QDir::homePath())
 {
     resize(1400, 900);
+    qApp->installEventFilter(this);
     m_project.blocks.append(makeBlock(tx("lbl.block").arg(1)));
     buildMenus();
     buildCentral();
@@ -126,6 +139,11 @@ void MainWindow::buildMenus()
     file->addAction(tx("act.saveProjectAs"), this, &MainWindow::saveProjectAs, QKeySequence::SaveAs);
     file->addSeparator();
     file->addAction(tx("act.quit"), this, &QWidget::close, QKeySequence::Quit);
+
+    QMenu *edit = menuBar()->addMenu(tx("menu.edit"));
+    edit->addAction(tx("act.undo"), this, &MainWindow::undo, QKeySequence::Undo);
+    QAction *redo = edit->addAction(tx("act.redo"), this, &MainWindow::redo);
+    redo->setShortcuts({QKeySequence(QStringLiteral("Ctrl+Y")), QKeySequence(QStringLiteral("Ctrl+Shift+Z"))});
 
     QMenu *language = menuBar()->addMenu(tx("menu.language"));
     auto *group = new QActionGroup(language);
@@ -272,6 +290,10 @@ void MainWindow::rebuildBlocks()
         widget->setShaded(i % 2 == 1); // 2nd, 4th, ... block is darker
         connect(widget, &BlockWidget::commandRequested, this,
                 [this, id](const QString &fileId, Command cmd) { handleCommand(id, fileId, cmd); });
+        connect(widget, &BlockWidget::moveSelectionRequested, this,
+                [this, id](const QString &fileId, int start, int end) {
+                    moveSelectionToNewBlock(id, fileId, start, end);
+                });
         m_blocksLayout->addWidget(widget);
     }
     m_blocksLayout->addStretch(1);
@@ -347,6 +369,7 @@ void MainWindow::newProject()
         return;
     m_project = Project();
     m_project.blocks.append(makeBlock(tx("lbl.block").arg(1)));
+    clearUndoHistory();
     refreshAll();
 }
 
@@ -372,6 +395,7 @@ bool MainWindow::loadProject(const QString &path)
         return false;
     }
     m_project = loaded;
+    clearUndoHistory();
     refreshAll();
     addRecentProject(path);
     statusBar()->showMessage(tx("msg.saved"), 3000);
@@ -466,11 +490,46 @@ std::optional<int> MainWindow::askInsertPosition(const QString &title)
     return indexes.at(items.indexOf(choice));
 }
 
+void MainWindow::moveSelectionToNewBlock(const QString &blockId, const QString &fileId, int start, int end)
+{
+    const TextBlock *checked = findBlock(m_project, blockId);
+    if (!checked || checked->files.size() != 1)
+        return;
+    const FtlFile &checkedFile = checked->files.first();
+    if (checkedFile.id != fileId || start < 0 || end > checkedFile.content.size() || start >= end)
+        return;
+
+    QMessageBox box(QMessageBox::Question, tx("ctx.moveToNewBlock"), tx("pos.moveQuestion"), QMessageBox::NoButton, this);
+    QPushButton *above = box.addButton(tx("pos.above"), QMessageBox::AcceptRole);
+    QPushButton *below = box.addButton(tx("pos.below"), QMessageBox::AcceptRole);
+    box.addButton(tx("btn.cancel"), QMessageBox::RejectRole);
+    box.exec();
+
+    const bool isAbove = box.clickedButton() == above;
+    if (!isAbove && box.clickedButton() != below)
+        return;
+
+    recordUndo();
+    TextBlock *b = findBlock(m_project, blockId);
+    FtlFile &f = b->files.first();
+    const int current = blockIndex(m_project, blockId);
+    const QString moved = f.content.mid(start, end - start);
+    f.content.remove(start, end - start);
+
+    TextBlock fresh = makeBlock(tx("lbl.block").arg(m_project.blocks.size() + 1));
+    fresh.files.first().content = moved;
+    m_project.blocks.insert(isAbove ? current : current + 1, fresh);
+
+    markDirty();
+    rebuildBlocks();
+}
+
 void MainWindow::addNewBlock()
 {
     const std::optional<int> at = askInsertPosition(tx("btn.newBlock"));
     if (!at)
         return;
+    recordUndo();
     m_project.blocks.insert(*at, makeBlock(tx("lbl.block").arg(m_project.blocks.size() + 1)));
     markDirty();
     rebuildBlocks();
@@ -488,6 +547,7 @@ void MainWindow::openFtlAsBlocks()
     if (!at)
         return;
     int position = *at;
+    recordUndo();
 
     for (const QString &path : paths) {
         QString content, error;
@@ -615,8 +675,7 @@ void MainWindow::saveBlock(const QString &blockId, bool saveAs)
 
 void MainWindow::addVariantsFromFiles(const QString &blockId)
 {
-    TextBlock *b = findBlock(m_project, blockId);
-    if (!b)
+    if (!findBlock(m_project, blockId))
         return;
     const QStringList paths = QFileDialog::getOpenFileNames(this, tx("dlg.openFtl"), m_lastDir,
                                                             tx("filter.ftl") + QStringLiteral(";;") + tx("filter.all"));
@@ -624,6 +683,10 @@ void MainWindow::addVariantsFromFiles(const QString &blockId)
         return;
     m_lastDir = QFileInfo(paths.first()).absolutePath();
 
+    // Look the block up again after recordUndo(): the snapshot shares data with the
+    // project until the first write, so references taken before it must not be used.
+    recordUndo();
+    TextBlock *b = findBlock(m_project, blockId);
     for (const QString &path : paths) {
         QString content, error;
         if (!readTextFile(path, content, error)) {
@@ -638,9 +701,10 @@ void MainWindow::addVariantsFromFiles(const QString &blockId)
 
 void MainWindow::addEmptyVariant(const QString &blockId)
 {
-    TextBlock *b = findBlock(m_project, blockId);
-    if (!b)
+    if (!findBlock(m_project, blockId))
         return;
+    recordUndo();
+    TextBlock *b = findBlock(m_project, blockId);
     b->files.append(makeFile(tx("lbl.variant").arg(b->files.size() + 1), QString(), QString()));
     markDirty();
     rebuildBlocks();
@@ -652,6 +716,7 @@ void MainWindow::moveBlock(const QString &blockId, int delta)
     const int to = from + delta;
     if (from < 0 || to < 0 || to >= m_project.blocks.size())
         return;
+    recordUndo();
     std::swap(m_project.blocks[from], m_project.blocks[to]);
     markDirty();
     rebuildBlocks();
@@ -664,6 +729,7 @@ void MainWindow::deleteBlock(const QString &blockId)
         return;
     if (!askYesNo(tx("btn.delete"), tx("msg.deleteBlock")))
         return;
+    recordUndo();
     m_project.blocks.remove(index);
     markDirty();
     rebuildBlocks();
@@ -674,17 +740,23 @@ void MainWindow::deleteFile(const QString &blockId, const QString &fileId)
     const int blockPos = blockIndex(m_project, blockId);
     if (blockPos < 0)
         return;
-    TextBlock &b = m_project.blocks[blockPos];
+    const TextBlock &current = m_project.blocks.at(blockPos);
+    int fileIndex = -1;
+    for (int i = 0; i < current.files.size(); ++i)
+        if (current.files.at(i).id == fileId) {
+            fileIndex = i;
+            break;
+        }
+    if (fileIndex < 0)
+        return;
+    const QString label = current.files.at(fileIndex).label;
+    if (!current.files.at(fileIndex).content.isEmpty() &&
+        !askYesNo(tx("btn.delete"), tx("msg.deleteFile").arg(label)))
+        return;
 
-    for (int i = 0; i < b.files.size(); ++i) {
-        if (b.files[i].id != fileId)
-            continue;
-        const FtlFile &f = b.files[i];
-        if (!f.content.isEmpty() && !askYesNo(tx("btn.delete"), tx("msg.deleteFile").arg(f.label)))
-            return;
-        b.files.remove(i);
-        break;
-    }
+    recordUndo();
+    TextBlock &b = m_project.blocks[blockPos];
+    b.files.remove(fileIndex);
     if (b.files.isEmpty())
         m_project.blocks.remove(blockPos); // a block always has at least one file
     markDirty();
@@ -707,11 +779,16 @@ bool indentFile(FtlFile &f)
 
 void MainWindow::autoIndentDocument()
 {
+    const QVector<Snapshot> redoBefore = m_redoStack;
+    recordUndo();
     bool changed = false;
     for (TextBlock &b : m_project.blocks)
         for (FtlFile &f : b.files)
             changed = indentFile(f) || changed;
-    if (changed) {
+    if (!changed) {
+        m_undoStack.removeLast();
+        m_redoStack = redoBefore;
+    } else {
         markDirty();
         rebuildBlocks();
     }
@@ -720,13 +797,18 @@ void MainWindow::autoIndentDocument()
 
 void MainWindow::autoIndentBlock(const QString &blockId)
 {
-    TextBlock *b = findBlock(m_project, blockId);
-    if (!b)
+    if (!findBlock(m_project, blockId))
         return;
+    const QVector<Snapshot> redoBefore = m_redoStack;
+    recordUndo();
+    TextBlock *b = findBlock(m_project, blockId);
     bool changed = false;
     for (FtlFile &f : b->files)
         changed = indentFile(f) || changed;
-    if (changed) {
+    if (!changed) {
+        m_undoStack.removeLast();
+        m_redoStack = redoBefore;
+    } else {
         markDirty();
         rebuildBlocks();
     }
@@ -735,11 +817,16 @@ void MainWindow::autoIndentBlock(const QString &blockId)
 
 void MainWindow::autoIndentFile(const QString &blockId, const QString &fileId)
 {
-    TextBlock *b = findBlock(m_project, blockId);
-    FtlFile *f = b ? findFile(*b, fileId) : nullptr;
-    if (!f)
+    const TextBlock *probe = findBlock(m_project, blockId);
+    if (!probe || !findFile(*findBlock(m_project, blockId), fileId))
         return;
-    if (indentFile(*f)) {
+    const QVector<Snapshot> redoBefore = m_redoStack;
+    recordUndo();
+    FtlFile *f = findFile(*findBlock(m_project, blockId), fileId);
+    if (!indentFile(*f)) {
+        m_undoStack.removeLast();
+        m_redoStack = redoBefore;
+    } else {
         markDirty();
         rebuildBlocks();
     }
@@ -783,6 +870,74 @@ void MainWindow::generateFiles()
 }
 
 // ---------------------------------------------------------------------------
+
+MainWindow::~MainWindow()
+{
+    qApp->removeEventFilter(this);
+}
+
+MainWindow::Snapshot MainWindow::currentSnapshot() const
+{
+    return {m_project.blocks, m_project.collectivePrefix};
+}
+
+void MainWindow::recordUndo()
+{
+    m_undoStack.append(currentSnapshot());
+    if (m_undoStack.size() > kMaxUndoSteps)
+        m_undoStack.removeFirst();
+    m_redoStack.clear();
+}
+
+void MainWindow::clearUndoHistory()
+{
+    m_undoStack.clear();
+    m_redoStack.clear();
+}
+
+void MainWindow::restoreSnapshot(const Snapshot &snapshot)
+{
+    m_project.blocks = snapshot.blocks;
+    m_project.collectivePrefix = snapshot.prefix;
+    markDirty();
+    refreshAll();
+}
+
+void MainWindow::undo()
+{
+    if (m_undoStack.isEmpty())
+        return;
+    m_redoStack.append(currentSnapshot());
+    restoreSnapshot(m_undoStack.takeLast());
+    statusBar()->showMessage(tx("msg.undone"), 2000);
+}
+
+void MainWindow::redo()
+{
+    if (m_redoStack.isEmpty())
+        return;
+    m_undoStack.append(currentSnapshot());
+    restoreSnapshot(m_redoStack.takeLast());
+    statusBar()->showMessage(tx("msg.redone"), 2000);
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    // A text editor with its own undo history keeps Ctrl+Z / Ctrl+Y for itself.
+    // Otherwise the key goes to the block-level undo / redo actions.
+    if (event->type() == QEvent::ShortcutOverride) {
+        if (auto *editor = qobject_cast<QPlainTextEdit *>(QApplication::focusWidget())) {
+            const auto *ke = static_cast<QKeyEvent *>(event);
+            const bool editorUndo = ke->matches(QKeySequence::Undo) && editor->document()->isUndoAvailable();
+            const bool editorRedo = isRedoKey(ke) && editor->document()->isRedoAvailable();
+            if (!editorUndo && !editorRedo && (ke->matches(QKeySequence::Undo) || isRedoKey(ke))) {
+                event->ignore();
+                return true;
+            }
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {

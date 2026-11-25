@@ -117,6 +117,8 @@ void BlockWidget::rebuildPanes()
         connect(pane, &FilePaneWidget::commandRequested, this,
                 [this](const QString &fileId, Command cmd) { emit commandRequested(fileId, cmd); });
         connect(pane, &FilePaneWidget::labelCommitted, this, &BlockWidget::rebuildPanes);
+        connect(pane, &FilePaneWidget::moveSelectionRequested, this,
+                [this](const QString &fileId, int start, int end) { emit moveSelectionRequested(fileId, start, end); });
         m_panesLayout->addWidget(pane);
     }
     applyFilter();

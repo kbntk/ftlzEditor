@@ -7,6 +7,7 @@
 
 #include <optional>
 
+class QEvent;
 class QLabel;
 class QMenu;
 class QLineEdit;
@@ -17,9 +18,11 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow() override;
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void buildMenus();
@@ -44,6 +47,7 @@ private:
     bool saveProjectAs();
     void openFtlAsBlocks();
     void addNewBlock();
+    void moveSelectionToNewBlock(const QString &blockId, const QString &fileId, int start, int end);
     std::optional<int> askInsertPosition(const QString &title);   // empty = cancelled
 
     void handleCommand(const QString &blockId, const QString &fileId, Command cmd);
@@ -57,6 +61,21 @@ private:
     void autoIndentBlock(const QString &blockId);
     void autoIndentFile(const QString &blockId, const QString &fileId);
     void generateFiles();
+
+    // Undo / redo of block-level changes (text typed in an editor uses the editor's own undo).
+    struct Snapshot {
+        QVector<TextBlock> blocks;
+        QString prefix;
+    };
+    void recordUndo();          // call right before a change to the blocks
+    void clearUndoHistory();
+    void undo();
+    void redo();
+    void restoreSnapshot(const Snapshot &snapshot);
+    Snapshot currentSnapshot() const;
+
+    QVector<Snapshot> m_undoStack;
+    QVector<Snapshot> m_redoStack;
 
     Project m_project;
     QString m_lastDir;

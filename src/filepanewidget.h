@@ -25,6 +25,8 @@ public:
 signals:
     void commandRequested(const QString &fileId, Command cmd);
     void labelCommitted();   // the label changed; the block must re-sort its panes
+    // The user asked to move the selected text [start, end) of this file to a new block.
+    void moveSelectionRequested(const QString &fileId, int start, int end);
 
 private:
     FtlFile *file() const;
@@ -34,6 +36,7 @@ private:
     void fitEditor();
     void onLabelEdited(const QString &text);
     void commitLabel();
+    void showEditorMenu(const QPoint &pos);
 
     Project *m_project;
     QString m_blockId;
