@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(ftlz-edytor VERSION 0.1.0 LANGUAGES CXX)
+project(marian VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,7 +22,7 @@ add_library(ftlcore STATIC
 target_include_directories(ftlcore PUBLIC src)
 target_link_libraries(ftlcore PUBLIC Qt6::Core)
 
-add_executable(ftlz-edytor
+add_executable(marian
     src/main.cpp
     src/mainwindow.cpp
     src/mainwindow.h
@@ -33,10 +33,10 @@ add_executable(ftlz-edytor
     src/ftlhighlighter.cpp
     src/ftlhighlighter.h
 )
-target_link_libraries(ftlz-edytor PRIVATE ftlcore Qt6::Core Qt6::Gui Qt6::Widgets)
-qt_add_resources(ftlz-edytor license_resources FILES LICENSE)
+target_link_libraries(marian PRIVATE ftlcore Qt6::Core Qt6::Gui Qt6::Widgets)
+qt_add_resources(marian license_resources FILES LICENSE)
 if(WIN32)
-    set_target_properties(ftlz-edytor PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(marian PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
 option(FTLZ_BUILD_TESTS "Build unit tests for the core library" ON)

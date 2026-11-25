@@ -16,7 +16,7 @@ struct Entry {
 
 const Entry kEntries[] = {
     // application / menus
-    {"app.title", "FTLZ Editor", "FTLZ-Editor"},
+    {"app.title", "Marian - the ftlz editor", "Marian - the ftlz editor"},
     {"doc.untitled", "untitled", "unbenannt"},
     {"menu.file", "&File", "&Datei"},
     {"menu.language", "&Language", "&Sprache"},

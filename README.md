@@ -1,4 +1,4 @@
-# FTLZ Editor
+# Marian - the ftlz editor
 
 [English](#english) · [Deutsch](#deutsch)
 
@@ -57,7 +57,7 @@ Requirements: Qt 6 (Core, Gui, Widgets; Test optional), CMake ≥ 3.21, a C++17 
 ```sh
 cmake -S . -B build
 cmake --build build
-./build/ftlz-edytor          # the application
+./build/marian          # the application
 ./build/ftlcore_tests        # tests for format, generation and label matching
 ```
 
@@ -66,12 +66,12 @@ Windows (Qt 6 for MSVC or MinGW):
 ```bat
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=C:/Qt/6.x/msvc2022_64
 cmake --build build
-windeployqt build\ftlz-edytor.exe
+windeployqt build\marian.exe
 ```
 
 ### License
 
-FTLZ Editor is free software under the GNU General Public License, version 3 (GPL-3.0). See `LICENSE`. The text is also shown in the application under **About → License**.
+Marian - the ftlz editor is free software under the GNU General Public License, version 3 (GPL-3.0). See `LICENSE`. The text is also shown in the application under **About → License**.
 
 ---
 
@@ -128,7 +128,7 @@ Voraussetzungen: Qt 6 (Core, Gui, Widgets; Test optional), CMake ≥ 3.21, ein C
 ```sh
 cmake -S . -B build
 cmake --build build
-./build/ftlz-edytor          # die Anwendung
+./build/marian          # die Anwendung
 ./build/ftlcore_tests        # Tests für Format, Erzeugung und Bezeichnungsabgleich
 ```
 
@@ -137,9 +137,9 @@ Windows (Qt 6 für MSVC oder MinGW):
 ```bat
 cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=C:/Qt/6.x/msvc2022_64
 cmake --build build
-windeployqt build\ftlz-edytor.exe
+windeployqt build\marian.exe
 ```
 
 ### Lizenz
 
-FTLZ-Editor ist freie Software unter der GNU General Public License, Version 3 (GPL-3.0). Siehe `LICENSE`. Der Text wird auch in der Anwendung unter **Über → Lizenz** angezeigt.
+Marian - the ftlz editor ist freie Software unter der GNU General Public License, Version 3 (GPL-3.0). Siehe `LICENSE`. Der Text wird auch in der Anwendung unter **Über → Lizenz** angezeigt.

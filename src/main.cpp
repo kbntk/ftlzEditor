@@ -24,8 +24,8 @@ public:
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    QApplication::setApplicationName(QStringLiteral("ftlz-edytor"));
-    QApplication::setOrganizationName(QStringLiteral("ftlz-edytor"));
+    QApplication::setApplicationName(QStringLiteral("marian"));
+    QApplication::setOrganizationName(QStringLiteral("marian"));
     app.setStyle(new AlwaysUnderlineStyle(app.style()->name()));
 
     setCurrentLanguage(savedLanguage());
